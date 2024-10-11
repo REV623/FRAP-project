@@ -192,9 +192,44 @@ theorem ForallTree_lt_trans {α : Type u} (a : Nat) (b : Nat) (t : Tree α)
     . assumption
     . assumption
 
+theorem ForallTree_lt_swap_trans {α : Type u} (a : Nat) (b : Nat) (t : Tree α)
+    : z < y → ForallTree (fun x _ ↦ x < z) t → ForallTree (fun x _ ↦ x < y) t := by
+  intro hab hbt
+  induction hbt with
+  | empty => constructor
+  | tree l k v r hbk _ _ ihla ihra =>
+    apply ForallTree.tree
+    . apply Nat.lt_trans
+      apply hbk
+      exact hab
+    . assumption
+    . assumption
+
 theorem SRL_BST {α : Type u} (t : Tree α)
     : BST t → BST (single_left_rotate t) := by
-  sorry
+  intro bst
+  induction bst with
+  | empty => apply BST.empty
+  | tree l' k' v' r' ihl ihr bstL bstR ihL ihR =>
+    unfold single_left_rotate
+    split
+    . apply BST.empty
+    . simp [*] at *
+      rename_i h; obtain ⟨hl', hk', _, hr'⟩ := h
+      simp [*] at *
+      apply BST.tree
+      . apply ForallTree.tree
+        . cases ihr; assumption
+        . cases ihr; apply ForallTree_lt_swap_trans <;> assumption
+        . cases bstR; assumption
+      . cases bstR; assumption
+      . cases ihr; apply BST.tree
+        . apply ihl
+        . simp; rename_i btt _ _; apply btt
+        . apply bstL
+        . cases bstR; rename_i bt _ _ _; apply bt
+      . cases bstR; rename_i ct _; apply ct
+    . apply BST.tree <;> assumption -- cases don't left rotate
 
 theorem SRR_BST {α : Type u} (t : Tree α)
     : BST t → BST (single_right_rotate t) := by
