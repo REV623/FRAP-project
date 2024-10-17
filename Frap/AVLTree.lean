@@ -267,7 +267,36 @@ theorem DRL_BST {α : Type u} (t : Tree α)
 
 theorem DRR_BST {α : Type u} (t : Tree α)
     : BST t → BST (double_rotate_right t) := by
-  sorry
+  intro bst
+  induction bst with
+  | empty => apply BST.empty
+  | tree l' k' v' r' ihl ihr bstL bstR ihL ihR =>
+    unfold double_rotate_right
+    split
+    . apply BST.empty
+    . simp [*] at *
+      rename_i h; obtain ⟨hl', hk', _, hr'⟩ := h
+      simp [*] at *
+      apply BST.tree
+      . apply ForallTree.tree
+        . cases ihr; rename_i xt1 _ _; cases xt1; assumption
+        . cases ihr; apply bstL
+        . cases bstR; rename_i xt3 _ _ _; cases xt3; assumption
+      . apply ForallTree.tree
+        . cases bstR; rename_i xt4 _ _; cases xt4; simp; assumption
+        . sorry
+        . sorry
+      . cases ihr; apply BST.tree
+        . assumption
+        . simp; rename_i xt5 _ _; cases xt5; assumption
+        . assumption
+        . cases bstR; rename_i xt6 _ _ _; cases xt6; assumption
+      . cases bstR; cases ihr; apply BST.tree
+        . rename_i xt7 _ _ _ _ _; cases xt7; assumption
+        . assumption
+        . rename_i xt8 _ _ _ _ _ _; cases xt8; assumption
+        . assumption
+    . apply BST.tree <;> assumption -- cases dont right rotate
 
 def lookup {α : Type u} (d : α) (x : Nat) (t : Tree α) : α :=
   match t with
