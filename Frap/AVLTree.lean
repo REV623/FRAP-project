@@ -227,17 +227,17 @@ theorem SRL_BST {α : Type u} (t : Tree α)
       rename_i h; obtain ⟨hl', hk', _, hr'⟩ := h
       simp [*] at *
       apply BST.tree
-      . apply ForallTree.tree
-        . cases ihr; assumption
-        . cases ihr; apply ForallTree_lt <;> assumption
-        . cases bstR; assumption
-      . cases bstR; assumption
+      . apply ForallTree.tree -- subtree a < y
+        . cases ihr; assumption -- z < y
+        . cases ihr; apply ForallTree_lt_swap_trans <;> assumption
+        . cases bstR; assumption -- subtree b < y
+      . cases bstR; assumption -- subtree c > y
       . cases ihr; apply BST.tree
         . apply ihl
-        . simp; rename_i btt _ _; apply btt
+        . simp; rename_i btt _ _; apply btt -- subtree b < z
         . apply bstL
         . cases bstR; rename_i bt _ _ _; apply bt
-      . cases bstR; rename_i ct _; apply ct
+      . cases bstR; rename_i ct _; apply ct -- subtree c > y
     . apply BST.tree <;> assumption -- cases don't left rotate
 
 theorem SRR_BST {α : Type u} (t : Tree α)
