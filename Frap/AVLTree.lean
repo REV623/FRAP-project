@@ -16,72 +16,36 @@ def height {α : Type u} (t : Tree α) : Nat :=
 example : height ex_tree = 3 := by
   rfl
 
-def is_balance {α : Type u} (t : Tree α) : Bool :=
-  match t with
-  | empty => true
-  | tree l _ _ r =>
-      let hl := height l;
-      let hr := height r;
-      if hr <= hl
-      then hl <= hr + 1
-      else hr <= hl + 1
+def is_balanced {α : Type u} (l : Tree α) (r : Tree α) : Prop :=
+  height l ≤ height r + 1 ∨ height r ≤ height l + 1
 
-example : is_balance ex_tree := by
-  rfl
+-- inductive ForallTree' {α : Type u} (p : Tree α → Tree α → Prop) : Tree α → Prop where
+--   | empty : ForallTree' p empty
+--   | tree : ∀ l k v r,
+--       p l r → ForallTree' p l → ForallTree' p r
+--       → ForallTree' p (tree l k v r)
 
-def is_balance' {α : Type u} (t : Tree α) : Prop :=
-  match t with
-  | empty => True
-  | tree l _ _ r =>
-    (height l ≤ height r + 1) -- hl ≤ hr + 1
-    ∨
-    (height r ≤ height l + 1) -- hr ≤ hl + 1
+-- inductive balanced_all {α : Type u} : Tree α → Prop where
+--   | empty : balanced_all empty
+--   | tree : ∀ l k v r,
+--     is_balance'' l r
+--     → ForallTree' is_balance'' l
+--     → ForallTree' is_balance'' r
+--     → balanced_all (tree l k v r)
 
-example : is_balance' ex_tree := by
-  unfold is_balance'
-  unfold ex_tree
-  split
-  . simp
-  . simp [*] at *
-    rename_i h; obtain ⟨l,_,_,r⟩ := h
-    rw [← l, ← r]
-    simp [height]
+-- example : balanced_all ex_tree := by
+--   repeat (constructor <;> repeat constructor)
 
-def balance_all {α : Type u} (t : Tree α) : Bool := -- do like ForallTree
-  match t with
-  | empty => true
-  | tree l _ _ r => balance_all l ∧ balance_all r ∧ is_balance t
-
-example : balance_all ex_tree := by
-  rfl
-
-def balance_all' {α : Type u} (t : Tree α) : Prop :=
-  match t with
-  | empty => True
-  | tree l _ _ r => balance_all' l ∧ balance_all' r ∧ is_balance' t
-
-example : balance_all' ex_tree := by
-  constructor <;> constructor <;> constructor
-  <;> constructor <;> constructor <;> constructor
-  <;> constructor <;> constructor; constructor
-
-def is_balance'' {α : Type u} (l : Tree α) (r : Tree α) : Prop :=
-  (height l ≤ height r + 1) -- hl ≤ hr + 1
-  ∨
-  (height r ≤ height l + 1) -- hr ≤ hl + 1
-
-inductive ForallTree' {α : Type u} (p : Tree α → Tree α → Prop) : Tree α → Prop where
-  | empty : ForallTree' p empty
+inductive balanced_tree {α : Type u} : Tree α → Prop where
+  | empty : balanced_tree empty
   | tree : ∀ l k v r,
-      p l r → ForallTree' p l → ForallTree' p r
-      → ForallTree' p (tree l k v r)
+    is_balanced l r
+    → balanced_tree l
+    → balanced_tree r
+    → balanced_tree (tree l k v r)
 
-inductive balance_all'' {α : Type u} : Tree α → Prop where
-  | empty : balance_all'' empty
-  | tree : ∀ l k v r,
-    ForallTree' is_balance'' l
-    → ForallTree' is_balance'' r
-    → balance_all'' (tree l k v r)
+example : balanced_tree ex_tree := by
+  repeat (constructor <;> repeat constructor)
 
 inductive ForallTree {α : Type u} (p : Nat → α → Prop) : Tree α → Prop where
   | empty : ForallTree p empty
@@ -99,17 +63,13 @@ inductive BST {α : Type u} : Tree α → Prop where
       → BST (tree l k v r)
 
 example : BST ex_tree := by
-  constructor <;> constructor <;> constructor <;> constructor <;> simp
+  repeat (constructor <;> repeat constructor)
 
 def AVLTree {α : Type u} (t : Tree α) : Prop :=
-  BST t ∧ balance_all' t
+  BST t ∧ balanced_tree t
 
 example : AVLTree ex_tree := by
-  constructor
-  . constructor <;> constructor <;> constructor <;> constructor <;> simp
-  . constructor <;> constructor <;> constructor
-    <;> constructor <;> constructor <;> constructor
-    <;> constructor <;> constructor; constructor
+  repeat (constructor <;> repeat constructor)
 
 /-
   Single rotation from left in RR case
@@ -154,11 +114,18 @@ def single_right_rotate {α : Type u} (t : Tree α) : Tree α :=
        / \                      / \
       b   c                    a   b
 -/
+-- def double_rotate_left {α : Type u} (t : Tree α) : Tree α :=
+--   match t with
+--   | empty => empty
+--   | tree (tree a y vy (tree b x vx c)) z vz d
+--       => tree (tree a y vy b) x vx (tree c z vz d)
+--   | _ => t
+
 def double_rotate_left {α : Type u} (t : Tree α) : Tree α :=
   match t with
   | empty => empty
   | tree (tree a y vy (tree b x vx c)) z vz d
-      => tree (tree a y vy b) x vx (tree c z vz d)
+      => single_right_rotate (tree (single_left_rotate (tree a y vy (tree b x vx c))) z vz d)
   | _ => t
 
 /-
@@ -172,38 +139,80 @@ def double_rotate_left {α : Type u} (t : Tree α) : Tree α :=
        / \                               / \
       b   c                             c   d
 -/
+-- def double_rotate_right {α : Type u} (t : Tree α) : Tree α :=
+--   match t with
+--   | empty => empty
+--   | tree a z vz (tree (tree b x vx c) y vy d)
+--       => tree (tree a z vz b) x vx (tree c y vy d)
+--   | _ => t
+
 def double_rotate_right {α : Type u} (t : Tree α) : Tree α :=
   match t with
   | empty => empty
   | tree a z vz (tree (tree b x vx c) y vy d)
-      => tree (tree a z vz b) x vx (tree c y vy d)
+      => single_left_rotate (tree a z vz (single_right_rotate (tree (tree b x vx c) y vy d)))
   | _ => t
 
-theorem ForallTree_lt_trans {α : Type u} (a : Nat) (b : Nat) (t : Tree α)
-    : a < b → ForallTree (fun x _ ↦ b < x) t → ForallTree (fun x _ ↦ a < x) t := by
-  intro hab hbt
-  induction hbt with
-  | empty => constructor
-  | tree l k v r hbk _ _ ihla ihra =>
-    apply ForallTree.tree
-    . apply Nat.lt_trans
-      apply hab
-      exact hbk
-    . assumption
-    . assumption
+def rebalance {α : Type u} (l : Tree α) (k : Nat) (v : α) (r : Tree α) : Tree α :=
+    let hl := height l;
+    let hr := height r;
+    if hl + 1 < hr -- Heavy right
+    then
+      match r with
+      | empty => r -- impossible
+      | tree l' _ _ r' =>
+        let hrl := height l';
+        let hrr := height r';
+        if hrl < hrr then single_right_rotate (tree l k v r) -- RR case
+        else if hrl > hrr then double_rotate_right (tree l k v r) -- RL case
+        else r -- impossible
+    else if hr + 1 < hl -- Heavy left
+    then
+      match l with
+      | empty => l -- impossible
+      | tree l' _ _ r' =>
+        let hll := height l';
+        let hlr := height r';
+        if hlr < hll then single_left_rotate (tree l k v r) -- LL case
+        else if hlr > hll then double_rotate_left (tree l k v r) -- LR case
+        else l -- impossible
+    else tree l k v r
 
-theorem ForallTree_lt_swap_trans {α : Type u} (a : Nat) (b : Nat) (t : Tree α)
-    : z < y → ForallTree (fun x _ ↦ x < z) t → ForallTree (fun x _ ↦ x < y) t := by
-  intro hab hbt
-  induction hbt with
-  | empty => constructor
-  | tree l k v r hbk _ _ ihla ihra =>
+def insert {α : Type u} (x : Nat) (v : α) (t : Tree α) : Tree α :=
+  match t with
+  | empty => tree empty x v empty
+  | tree l k v' r =>
+    if x < k then rebalance (insert x v l) k v' r
+    else if x > k then rebalance l k v' (insert x v r)
+    else tree l x v r  -- update value
+
+----------------------------- proof insert preserved BST -----------------------------
+
+theorem ForallTree_lt {α : Type u} (t : Tree α) k k'
+    : k < k' → ForallTree (fun x _ ↦ x < k) t → ForallTree (fun x _ ↦ x < k') t := by
+  intro hkk' hkt
+  induction hkt with
+  | empty => apply ForallTree.empty
+  | tree l k v r hltk _ _ ihlk' ihrk' =>
     apply ForallTree.tree
     . apply Nat.lt_trans
-      apply hbk
-      exact hab
-    . assumption
-    . assumption
+      apply hltk
+      exact hkk'
+    . apply ihlk'
+    . apply ihrk'
+
+theorem ForallTree_gt {α : Type u} (t : Tree α) k k'
+    : k > k' → ForallTree (fun x _ ↦ x > k) t → ForallTree (fun x _ ↦ x > k') t := by
+  intro hkk' hkt
+  induction hkt with
+  | empty => apply ForallTree.empty
+  | tree l k v r hgtk _ _ ihlk' ihrk' =>
+    apply ForallTree.tree
+    . apply Nat.lt_trans
+      apply hkk'
+      exact hgtk
+    . apply ihlk'
+    . apply ihrk'
 
 theorem SRL_BST {α : Type u} (t : Tree α)
     : BST t → BST (single_left_rotate t) := by
@@ -220,7 +229,7 @@ theorem SRL_BST {α : Type u} (t : Tree α)
       apply BST.tree
       . apply ForallTree.tree
         . cases ihr; assumption
-        . cases ihr; apply ForallTree_lt_swap_trans <;> assumption
+        . cases ihr; apply ForallTree_lt <;> assumption
         . cases bstR; assumption
       . cases bstR; assumption
       . cases ihr; apply BST.tree
@@ -250,7 +259,7 @@ theorem SRR_BST {α : Type u} (t : Tree α)
         . cases bstL; assumption -- subtree b > y
         . cases ihl; -- subtree c > y
           rename_i hyz _; simp
-          apply ForallTree_lt_trans
+          apply ForallTree_gt
           . apply hyz
           . assumption
       . cases bstL; assumption
@@ -263,7 +272,31 @@ theorem SRR_BST {α : Type u} (t : Tree α)
 
 theorem DRL_BST {α : Type u} (t : Tree α)
     : BST t → BST (double_rotate_left t) := by
-  sorry
+  intro bst
+  induction bst with
+  | empty => apply BST.empty
+  | tree l' k' v' r' ihl ihr bstL bstR ihL ihR =>
+    unfold double_rotate_left
+    split
+    . apply BST.empty -- empty cases
+    . apply SRR_BST -- cases rotate DRL
+      simp [*] at *
+      rename_i h; obtain ⟨hl', hk', _, hr'⟩ := h
+      simp [*] at *
+      apply BST.tree
+      . cases ihl
+        rename_i hzx; cases hzx
+        apply ForallTree.tree
+        . assumption
+        . apply ForallTree.tree
+          . assumption
+          . assumption
+          . assumption
+        . assumption
+      . apply ihr
+      . apply SRL_BST; apply bstL
+      . apply bstR
+    . apply BST.tree <;> assumption -- cases dont rotate
 
 theorem DRR_BST {α : Type u} (t : Tree α)
     : BST t → BST (double_rotate_right t) := by
@@ -273,30 +306,642 @@ theorem DRR_BST {α : Type u} (t : Tree α)
   | tree l' k' v' r' ihl ihr bstL bstR ihL ihR =>
     unfold double_rotate_right
     split
-    . apply BST.empty
-    . simp [*] at *
+    . apply BST.empty -- empty cases
+    . apply SRL_BST -- cases rotate DRR
+      simp [*] at *
       rename_i h; obtain ⟨hl', hk', _, hr'⟩ := h
       simp [*] at *
       apply BST.tree
-      . apply ForallTree.tree
-        . cases ihr; rename_i xt1 _ _; cases xt1; assumption
-        . cases ihr; apply bstL
-        . cases bstR; rename_i xt3 _ _ _; cases xt3; assumption
-      . apply ForallTree.tree
-        . cases bstR; rename_i xt4 _ _; cases xt4; simp; assumption
-        . sorry
-        . sorry
-      . cases ihr; apply BST.tree
+      . apply ihl
+      . cases ihr
+        rename_i hzx _ _; cases hzx
+        apply ForallTree.tree
         . assumption
-        . simp; rename_i xt5 _ _; cases xt5; assumption
         . assumption
-        . cases bstR; rename_i xt6 _ _ _; cases xt6; assumption
-      . cases bstR; cases ihr; apply BST.tree
-        . rename_i xt7 _ _ _ _ _; cases xt7; assumption
+        . apply ForallTree.tree
+          . assumption
+          . assumption
+          . assumption
+      . apply bstL
+      . apply SRR_BST; apply bstR
+    . apply BST.tree <;> assumption -- cases dont rotate
+
+theorem rebalance_BST {α : Type u} (l : Tree α) k vk (r : Tree α)
+    : ForallTree (fun x _ => x < k) l
+      -> ForallTree (fun x _ => x > k) r
+      -> BST l
+      -> BST r
+      -> BST (rebalance l k vk r) := by
+  intro hlk hkr hbl hbr
+  unfold rebalance
+  simp
+  split
+  . split
+    . constructor
+    . split
+      . apply SRR_BST
+        constructor <;> assumption
+      . split
+        . apply DRR_BST
+          constructor <;> assumption
         . assumption
-        . rename_i xt8 _ _ _ _ _ _; cases xt8; assumption
+  . split
+    . split
+      . constructor
+      . split
+        . apply SRL_BST
+          constructor <;> assumption
+        . split
+          . apply DRL_BST
+            constructor <;> assumption
+          . assumption
+    . constructor <;> assumption
+
+theorem single_left_rotateP {α : Type u} (P : Nat → α → Prop) (l : Tree α) k vk (r : Tree α)
+    : ForallTree P l
+      → ForallTree P r
+      → P k vk
+      → ForallTree P (single_left_rotate (tree l k vk r)) := by
+  intro hpl hpr hpk
+  unfold single_left_rotate
+  split
+  . constructor
+  . simp [*] at *
+    simp [*] at *
+    cases hpr
+    constructor
+    . assumption
+    . constructor <;> assumption
+    . assumption
+  . constructor <;> assumption
+
+theorem single_right_rotateP {α : Type u} (P : Nat → α → Prop) (l : Tree α) k vk (r : Tree α)
+    : ForallTree P l
+      → ForallTree P r
+      → P k vk
+      → ForallTree P (single_right_rotate (tree l k vk r)) := by
+  intro hpl hpr hpk
+  unfold single_right_rotate
+  split
+  . constructor
+  . simp [*] at *
+    simp [*] at *
+    cases hpl
+    constructor
+    . assumption
+    . assumption
+    . constructor <;> assumption
+  . constructor <;> assumption
+
+theorem double_left_rotateP {α : Type u} (P : Nat → α → Prop) (l : Tree α) k vk (r : Tree α)
+    : ForallTree P l
+      → ForallTree P r
+      → P k vk
+      → ForallTree P (double_rotate_left (tree l k vk r)) := by
+  intro hpl hpr hpk
+  unfold double_rotate_left
+  split
+  . constructor
+  . simp [*] at *
+    simp [*] at *
+    cases hpl
+    apply single_right_rotateP
+    . apply single_left_rotateP <;> assumption
+    . assumption
+    . assumption
+  . constructor <;> assumption
+
+theorem double_right_rotateP {α : Type u} (P : Nat → α → Prop) (l : Tree α) k vk (r : Tree α)
+    : ForallTree P l
+      → ForallTree P r
+      → P k vk
+      → ForallTree P (double_rotate_right (tree l k vk r)) := by
+  intro hpl hpr hpk
+  unfold double_rotate_right
+  split
+  . constructor
+  . simp [*] at *
+    simp [*] at *
+    cases hpr
+    apply single_left_rotateP
+    . assumption
+    . apply single_right_rotateP <;> assumption
+    . assumption
+  . constructor <;> assumption
+
+theorem rebalanceP {α : Type u} (P : Nat → α → Prop) (l : Tree α) k vk (r : Tree α)
+    : ForallTree P l
+      → ForallTree P r
+      → P k vk
+      → ForallTree P (rebalance l k vk r) := by
+  intro hpl hpr hpk
+  unfold rebalance
+  simp
+  split
+  . split
+    . constructor
+    . split
+      . apply single_right_rotateP <;> assumption
+      . split
+        . apply double_right_rotateP <;> assumption
         . assumption
-    . apply BST.tree <;> assumption -- cases dont right rotate
+  . split
+    . split
+      . constructor
+      . split
+        . apply single_left_rotateP <;> assumption
+        . split
+          . apply double_left_rotateP <;> assumption
+          . assumption
+    . constructor <;> assumption
+
+theorem insertP {α : Type u} (P : Nat → α → Prop) (t : Tree α) k vk
+    : ForallTree P t → P k vk → ForallTree P (insert k vk t) := by
+  intro hpt hpk
+  induction t with
+  | empty => constructor <;> assumption
+  | tree _ _ _ _ ihl ihr =>
+    cases hpt
+    unfold insert
+    split
+    . apply rebalanceP <;> simp [*] at *
+    . split
+      . apply rebalanceP <;> simp [*] at *
+      . constructor <;> assumption
+
+theorem insert_BST {α : Type u} (k : Nat) (v : α) (t : Tree α)
+    : BST t → BST (insert k v t) := by
+  intro bst
+  induction t with
+  | empty => (repeat constructor) <;> assumption
+  | tree l' k' v' r' ihl ihr =>
+    cases bst
+    unfold insert
+    simp
+    split
+    . apply rebalance_BST <;> simp [*] at *
+      apply insertP <;> assumption
+    . split
+      . apply rebalance_BST <;> simp [*] at *
+        apply insertP <;> assumption
+      . have heq : k = k' := by
+          simp at *
+          apply Nat.le_antisymm
+          . assumption
+          . assumption
+        constructor <;> simp [*] at *
+
+----------------------------- proof insert preserved balanced_tree -----------------------------
+
+theorem SRR_balanced_tree {α : Type u} (l l' r': Tree α) k v v'
+    : height l + 1 < height (tree l' k' v' r')
+      → height l' < height r'
+      → balanced_tree l
+      → balanced_tree (tree l' k' v' r')
+      → balanced_tree (single_right_rotate (tree l k v (tree l' k' v' r'))) := by
+  intro heavy_left _hLL hbl hbr
+  unfold single_right_rotate
+  split
+  . constructor
+  . simp [*] at *
+    simp [*] at *
+    cases hbl
+    . constructor
+      . simp [height, is_balanced] at *
+        left
+        omega
+      . assumption
+      . constructor
+        . simp [height, is_balanced] at *
+          left
+          omega
+        . assumption
+        . assumption
+  . constructor
+    . unfold is_balanced
+      left
+      omega
+    . assumption
+    . assumption
+
+theorem SRL_balanced_tree {α : Type u} (r l' r': Tree α) k v v'
+    : height r + 1 < height (tree l' k' v' r')
+      → height r' < height l'
+      → balanced_tree (tree l' k' v' r')
+      → balanced_tree r
+      → balanced_tree (single_left_rotate (tree (tree l' k' v' r') k v r)) := by
+  intro heavy_right _hRR hbl hbr
+  unfold single_left_rotate
+  split
+  . constructor
+  . simp [*] at *
+    simp [*] at *
+    cases hbr
+    . constructor
+      . simp [height, is_balanced] at *
+        right
+        omega
+      . constructor
+        . simp [height, is_balanced] at *
+          right
+          omega
+        . assumption
+        . assumption
+      . assumption
+  . constructor
+    . unfold is_balanced
+      right
+      omega
+    . assumption
+    . assumption
+
+theorem DRL_balanced_tree {α : Type u} (r l' r': Tree α) k v v'
+    : height r + 1 < height (tree l' k' v' r')
+      → height r' > height l'
+      → balanced_tree (tree l' k' v' r')
+      → balanced_tree r
+      → balanced_tree (double_rotate_left (tree (tree l' k' v' r') k v r)) := by
+  intro heavy_right _hRR hbl hbr
+  unfold double_rotate_left
+  split
+  . constructor
+  . simp [single_left_rotate, single_right_rotate] at *
+    simp [*] at *
+    cases hbl
+    constructor
+    . unfold is_balanced
+      omega
+    . rename_i h _; cases h
+      constructor
+      . unfold is_balanced
+        omega
+      . assumption
+      . assumption
+    . rename_i h _; cases h
+      constructor
+      . unfold is_balanced
+        omega
+      . assumption
+      . assumption
+  . constructor
+    . unfold is_balanced
+      right
+      omega
+    . assumption
+    . assumption
+
+theorem DRR_balanced_tree {α : Type u} (l l' r': Tree α) k v v'
+    : height l + 1 < height (tree l' k' v' r')
+      → height l' > height r'
+      → balanced_tree l
+      → balanced_tree (tree l' k' v' r')
+      → balanced_tree (double_rotate_right (tree l k v (tree l' k' v' r'))) := by
+  intro heavy_left _hLL hbl hbr
+  unfold double_rotate_right
+  split
+  . constructor
+  . simp [single_right_rotate, single_left_rotate] at *
+    simp [*] at *
+    cases hbr
+    . constructor
+      . unfold is_balanced
+        omega
+      . rename_i h _ _; cases h
+        constructor
+        . unfold is_balanced
+          omega
+        . assumption
+        . assumption
+      . rename_i h _ _; cases h
+        constructor
+        . unfold is_balanced
+          omega
+        . assumption
+        . assumption
+  . constructor
+    . unfold is_balanced
+      left
+      omega
+    . assumption
+    . assumption
+
+theorem rebalance_balanced_tree {α : Type u} (l : Tree α) k vk (r : Tree α)
+    : balanced_tree l
+      -> balanced_tree r
+      -> balanced_tree (rebalance l k vk r) := by
+  intro hbl hbr
+  unfold rebalance
+  simp
+  split
+  . split
+    . constructor
+    . split
+      . apply SRR_balanced_tree <;> assumption
+      . split
+        . apply DRR_balanced_tree <;> assumption
+        . assumption
+  . split
+    . split
+      . constructor
+      . split
+        . apply SRL_balanced_tree <;> assumption
+        . split
+          . apply DRL_balanced_tree <;> assumption
+          . assumption
+    . constructor
+      . simp at *
+        unfold is_balanced
+        left; assumption
+      . assumption
+      . assumption
+
+theorem insert_balanced_tree {α : Type u} (k : Nat) (v : α) (t : Tree α)
+    : balanced_tree t → balanced_tree (insert k v t) := by
+  intro blt
+  induction t with
+  | empty => (repeat constructor) <;> assumption
+  | tree l' k' v' r' ihl ihr =>
+    cases blt
+    unfold insert
+    split
+    . simp [*] at *
+      apply rebalance_balanced_tree <;> assumption
+    . split
+      . simp [*] at *
+        apply rebalance_balanced_tree <;> assumption
+      . constructor <;> assumption
+
+----------------------------- proof insert preserved AVL -----------------------------
+
+theorem insert_AVL {α : Type u} (k : Nat) (v : α) (t : Tree α)
+    : AVLTree t → AVLTree (insert k v t) := by
+  intro avl
+  cases avl
+  constructor
+  . apply insert_BST; assumption
+  . apply insert_balanced_tree; assumption
+
+----------------------------- delete definition -----------------------------
+
+def findmin_node {α : Type u} (t : Tree α) : Tree α := -- assume BST
+  match t with
+  | empty => empty
+  | tree empty k v r => tree empty k v r
+  | tree l _ _ _ => findmin_node l
+
+def delete_min {α : Type u} (t : Tree α) : Option (Nat × α × Tree α) :=
+  match t with
+  | empty => none
+  | tree l k v r =>
+    match delete_min l with
+    | none => some (k, v, r)
+    | some (k', v', l') => (k', v', rebalance l' k v r)
+
+def delete {α : Type u} (x : Nat) (t : Tree α) : Tree α :=
+  match t with
+  | empty => empty -- not found
+  | tree l k v r =>
+    if x < k then rebalance (delete x l) k v r
+    else if x > k then rebalance l k v (delete x r)
+    else -- found delete node
+      match l, r with
+      | empty, empty => empty -- no children nodes
+      | _, empty => l
+      | empty, _ => r
+      | _, tree l' k' v' r' =>
+        match findmin_node l' with
+        | empty => rebalance l k' v' r'
+        | tree _ nextK nextV _ => rebalance l nextK nextV (delete nextK r)
+
+def delete' {α : Type u} (x : Nat) (t : Tree α) : Tree α :=
+  match t with
+  | empty => empty -- not found
+  | tree l k v r =>
+    if x < k then rebalance (delete' x l) k v r
+    else if x > k then rebalance l k v (delete' x r)
+    else -- found delete node
+      match l, r with
+      | empty, empty => empty -- no children nodes
+      | _, empty => l
+      | empty, _ => r
+      | _, r' =>
+        match delete_min r' with
+        | none => l
+        | some (nextK, nextV, t) => rebalance l nextK nextV t
+
+----------------------------- proof delete preserved BST -----------------------------
+
+theorem delete_min_gt {α : Type u} (k k': Nat) (v': α) (t t' : Tree α)
+    : ForallTree (fun x _ ↦ k < x) t
+      → delete_min t = some (k', v', t')
+      → k < k' := by
+  intro hft hdt
+  induction t generalizing k k' v' t' with
+  | empty => cases hdt
+  | tree l'' k'' v'' r'' ihl ihr =>
+    apply ihl <;> try assumption
+    . cases hft; assumption
+    . simp [delete_min] at hdt
+      sorry
+
+theorem delete_min_BST {α : Type u} (k : Nat) (v : α) (t t' : Tree α)
+    : BST t
+      → delete_min t = some (k, v, t')
+      → BST t' := by
+  sorry
+
+theorem delete_min_BST_min_node {α : Type u} (k : Nat) (v : α) (t t' : Tree α)
+    : BST t
+      → delete_min t = some (k, v, t')
+      → ForallTree (fun x _ => x > k) t' := by
+  sorry
+
+theorem delete_minP {α : Type u} (P : Nat → α → Prop) (k : Nat) (v : α) (t t' : Tree α)
+    : ForallTree P t
+      → delete_min t = some (k, v, t')
+      → ForallTree P t' := by
+  intro hpt hdt
+  induction t generalizing k v t' with
+  | empty => cases hdt
+  | tree l'' k'' v'' r'' ihl ihr =>
+    apply ihl <;> try assumption
+    . cases hpt; assumption
+    . sorry
+    --  rw [← hdt]
+    --   simp [delete_min]
+    --   split
+    --   . sorry
+    --   . rename_i h
+    --     rw [h]
+    --     congr
+
+theorem delete_nodeP {α : Type u} (P : Nat → α → Prop) (k : Nat) (v : α) (t t' : Tree α)
+    : ForallTree P t
+      → delete_min t = some (k, v, t')
+      → P k v := by
+  sorry
+
+theorem deleteP' {α : Type u} (P : Nat → α → Prop) (t : Tree α) k
+    : ForallTree P t → ForallTree P (delete' k t) := by
+  intro hpt
+  induction t with
+  | empty => constructor <;> assumption
+  | tree l' k' v' r' ihl ihr =>
+    cases hpt
+    unfold delete'
+    split
+    . apply rebalanceP <;> simp [*] at *
+    . split
+      . apply rebalanceP <;> simp [*] at *
+      . split
+        . assumption
+        . assumption
+        . assumption
+        . split
+          . assumption
+          . apply rebalanceP
+            . assumption
+            . apply delete_minP
+              . rename_i forallr' _ _ _ _ _ _ _ _ _ _ _ _; apply forallr'
+              . rename_i hdelmin; apply hdelmin
+            . apply delete_nodeP
+              . rename_i forallr' _ _ _ _ _ _ _ _ _ _ _ _; apply forallr'
+              . rename_i hdelmin; apply hdelmin
+
+theorem delete_BST' {α : Type u} (k : Nat) (t : Tree α)
+    : BST t → BST (delete' k t) := by
+  intro bst
+  induction t with
+  | empty => constructor
+  | tree l' k' v' r' ihl ihr =>
+    cases bst
+    simp [*] at *
+    unfold delete'
+    split
+    . apply rebalance_BST <;> try simp [*] at *
+      apply deleteP'; assumption
+    . split
+      . apply rebalance_BST <;> try simp [*] at *
+        apply deleteP'; assumption
+      . split
+        . apply BST.empty
+        . assumption
+        . assumption
+        . split
+          . assumption
+          . apply rebalance_BST
+            . apply ForallTree_lt
+              . apply delete_min_gt <;> assumption
+              . assumption
+            . apply delete_min_BST_min_node
+              . rename_i bstr' _ _ _ _ _ _ _ _ _ _ _ _ _; apply bstr'
+              . rename_i hdelmin; apply hdelmin
+            . assumption
+            . apply delete_min_BST
+              . rename_i bstr' _ _ _ _ _ _ _ _ _ _ _ _ _; apply bstr'
+              . rename_i hdelmin; apply hdelmin
+
+theorem findmin_node_gt {α : Type u} (t : Tree α) l k v r k'
+    : BST t
+      → ForallTree (fun x _ => k' < x) t
+      → findmin_node t = tree l k v r
+      → k' < k := by
+  intro bst hl' hmin
+  induction t with
+  | empty => cases hmin -- contra
+  | tree l' k'' v' r' ihl _ =>
+    apply ihl
+    . cases bst
+      assumption
+    . cases hl'
+      assumption
+    . rw [← hmin, findmin_node]
+      sorry
+
+theorem deleteP {α : Type u} (P : Nat → α → Prop) (t : Tree α) k
+    : ForallTree P t → ForallTree P (delete k t) := by
+  intro hpt
+  induction t with
+  | empty => constructor <;> assumption
+  | tree _ _ _ _ ihl ihr =>
+    cases hpt
+    unfold delete
+    split
+    . apply rebalanceP <;> simp [*] at *
+    . split
+      . apply rebalanceP <;> simp [*] at *
+      . split <;> try assumption
+        . split
+          . rename_i h _ _; cases h
+            apply rebalanceP <;> simp [*] at *
+          . apply rebalanceP
+            . assumption
+            . sorry
+            . sorry
+
+theorem delete_BST {α : Type u} (k : Nat) (t : Tree α)
+    : BST t → BST (delete k t) := by
+  intro bst
+  induction t with
+  | empty => constructor
+  | tree l' k' v' r' ihl ihr =>
+    cases bst
+    simp [*] at *
+    unfold delete
+    split
+    . apply rebalance_BST <;> try simp [*] at *
+      apply deleteP; assumption
+    . split
+      . apply rebalance_BST <;> try simp [*] at *
+        apply deleteP; assumption
+      . split
+        . apply BST.empty
+        . assumption
+        . assumption
+        . split
+          . rename_i hbst hforall _ _ -- case : | empty => rebalance l k' v' r'
+            cases hbst
+            cases hforall
+            apply rebalance_BST
+            . apply ForallTree_lt
+              . assumption
+              . assumption
+            . assumption
+            . assumption
+            . assumption
+          . rename_i hbst hforall _ _ _ _ _ _ -- cases : | tree _ nextK nextV _ => rebalance l nextK nextV (delete nextK r)
+            cases hbst
+            cases hforall
+            rename_i hfindmin hbstl _ _ _ _ _ _
+            -- cases hbstl
+            apply rebalance_BST
+            . apply ForallTree_lt
+              . apply findmin_node_gt
+                . apply hbstl
+                . assumption
+                . apply hfindmin
+              . assumption
+            . sorry
+            . sorry
+            . sorry
+
+----------------------------- proof delete preserved balanced_tree -----------------------------
+
+theorem delete_balance {α : Type u} (k : Nat) (t : Tree α)
+    : balanced_tree t → balanced_tree (delete k t) := by
+  sorry
+
+----------------------------- proof delete preserved AVL -----------------------------
+
+theorem delete_AVL {α : Type u} (k : Nat) (v : α) (t : Tree α)
+    : AVLTree t → AVLTree (delete k t) := by
+  intro avl
+  cases avl
+  constructor
+  . apply delete_BST; assumption
+  . apply delete_balance; assumption
+
+----------------------------- proof lookup preserved AVL -----------------------------
 
 def lookup {α : Type u} (d : α) (x : Nat) (t : Tree α) : α :=
   match t with
@@ -306,48 +951,125 @@ def lookup {α : Type u} (d : α) (x : Nat) (t : Tree α) : α :=
       else if x > k then lookup d x r
       else v
 
-def left_heavy {α : Type u} (t : Tree α) : Bool :=
-  match t with
-  | empty => false
-  | tree l _ _ r => height l > height r + 1
+theorem lookup_empty {α : Type u} (d : α) (k : Nat)
+    : lookup d k empty = d := by
+  rfl
 
-def right_heavy {α : Type u} (t : Tree α) : Bool :=
-  match t with
-  | empty => false
-  | tree l _ _ r => height r > height l + 1
-
-def is_LR_case {α : Type u} (t : Tree α) : Bool :=
-  match t with
-  | tree (tree ll _ _ lr) _ _ _ => height ll < height lr
-  | _ => false
-
-def is_RL_case {α : Type u} (t : Tree α) : Bool :=
-  match t with
-  | tree _ _ _ (tree rl _ _ rr) => height rr < height rl
-  | _ => false
-
-def insert {α : Type u} (x : Nat) (v : α) (t : Tree α) : Tree α := -- make rebalance function
-  match t with
-  | empty => tree empty x v empty
-  | tree l k v' r =>
-      if x < k then
-        let t' := (tree (insert x v l) k v' r);
-        if left_heavy t'
-        then
-          if is_LR_case t'
-          then double_rotate_left t'  -- LR case
-          else single_right_rotate t'  -- LL case
-        else t'  -- current node is balanced
-      else if x > k then
-        let t' := (tree l k v' (insert x v r));
-        if right_heavy t'
-        then
-          if is_RL_case t'
-          then double_rotate_right t'  -- RL case
-          else single_left_rotate t'  -- RR case
-        else t'  -- current node is balanced
-      else tree l x v r  -- update value
-
-theorem avl_insert_of_avl {α : Type u} (k : Nat) (v : α) (t : Tree α)
-    : AVLTree t → AVLTree (insert k v t) := by
+theorem rebalance_lookup {α : Type u} (d : α) k k' (v : α) l r
+    : BST l → BST r
+      → ForallTree (fun x _ => x < k) l → ForallTree (fun x _ => k < x) r
+      → lookup d k' (rebalance l k v r) =
+          if k' < k then lookup d k' l
+          else if k' > k then lookup d k' r
+          else v := by
   sorry
+
+theorem lookup_insert_eq {α : Type u} (d : α) t k v
+    : AVLTree t → lookup d k (insert k v t) = v := by
+  intro avl
+  obtain ⟨bst, hbt⟩ := avl
+  induction t with
+  | empty => simp [insert, lookup]
+  | tree l' k' v' r' ihl ihr =>
+    cases bst
+    unfold insert
+    split
+    . rw [rebalance_lookup] <;> try assumption
+      . split
+        . apply ihl
+          . assumption
+          . cases hbt
+            assumption
+        . apply ihl
+          . assumption
+          . cases hbt
+            assumption
+      . apply insert_BST; assumption
+      . apply insertP <;> assumption
+    . split
+      . rw [rebalance_lookup] <;> try assumption
+        . split
+          . exfalso
+            rename Not (LT.lt k k') => hnlt
+            apply hnlt
+            assumption
+          . apply ihr;
+            . assumption
+            . cases hbt
+              assumption
+        . apply insert_BST; assumption
+        . apply insertP <;> assumption
+      . simp [lookup]
+
+theorem lookup_ins_neq {α : Type u} (d : α) t k v
+    : AVLTree t → k ≠ k' → lookup d k' (insert k v t) = lookup d k' t := by
+  intro avl knk
+  obtain ⟨bst, hbt⟩ := avl
+  induction t with
+  | empty =>
+    simp [insert, lookup]
+    intros
+    exfalso
+    apply knk
+    omega
+  | tree l'' k'' v'' r'' ihl ihr =>
+    cases bst
+    unfold insert
+    split
+    . rw [rebalance_lookup] <;> try assumption
+      . split
+        . simp [lookup]
+          . split
+            . apply ihl
+              . assumption
+              . cases hbt
+                assumption
+            . exfalso
+              rename Not (LT.lt k' k'') => hnlt
+              apply hnlt; assumption
+        . split
+          . simp [lookup]
+            . split
+              . exfalso
+                rename Not (LT.lt k' k'') => hnlt
+                apply hnlt; assumption
+              . rfl
+          . have heq : k' = k'' := by
+              simp at *
+              apply Nat.le_antisymm
+              . assumption
+              . assumption
+            rw [heq]; simp [lookup]
+      . apply insert_BST; assumption
+      . apply insertP <;> assumption
+    . split
+      . rw [rebalance_lookup] <;> try assumption
+        . split
+          . simp [lookup]
+            . split
+              . rfl
+              . exfalso
+                rename Not (LT.lt k' k'') => hnlt
+                apply hnlt; assumption
+          . split
+            . simp [lookup]
+              . split
+                . exfalso
+                  rename Not (LT.lt k' k'') => hnlt
+                  apply hnlt; assumption
+                . apply ihr
+                  . assumption
+                  . cases hbt
+                    assumption
+            . have heq : k' = k'' := by
+                simp at *
+                apply Nat.le_antisymm
+                . assumption
+                . assumption
+              rw [heq]; simp [lookup]
+        . apply insert_BST; assumption
+        . apply insertP <;> assumption
+      . simp [lookup]
+        repeat' split <;> try (exfalso; omega)
+        . rfl
+        . rfl
