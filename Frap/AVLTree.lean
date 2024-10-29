@@ -227,17 +227,17 @@ theorem SRL_BST {α : Type u} (t : Tree α)
       rename_i h; obtain ⟨hl', hk', _, hr'⟩ := h
       simp [*] at *
       apply BST.tree
-      . apply ForallTree.tree -- subtree a < y
-        . cases ihr; assumption -- z < y
-        . cases ihr; apply ForallTree_lt_swap_trans <;> assumption
-        . cases bstR; assumption -- subtree b < y
-      . cases bstR; assumption -- subtree c > y
+      . apply ForallTree.tree
+        . cases ihr; assumption
+        . cases ihr; apply ForallTree_lt <;> assumption
+        . cases bstR; assumption
+      . cases bstR; assumption
       . cases ihr; apply BST.tree
         . apply ihl
-        . simp; rename_i btt _ _; apply btt -- subtree b < z
+        . simp; rename_i btt _ _; apply btt
         . apply bstL
         . cases bstR; rename_i bt _ _ _; apply bt
-      . cases bstR; rename_i ct _; apply ct -- subtree c > y
+      . cases bstR; rename_i ct _; apply ct
     . apply BST.tree <;> assumption -- cases don't left rotate
 
 theorem SRR_BST {α : Type u} (t : Tree α)
@@ -766,7 +766,32 @@ theorem delete_minP {α : Type u} (P : Nat → α → Prop) (k : Nat) (v : α) (
   | tree l'' k'' v'' r'' ihl ihr =>
     apply ihl <;> try assumption
     . cases hpt; assumption
-    . sorry
+    . rw [← hdt]
+      sorry
+    --  rw [← hdt]
+    --   simp [delete_min]
+    --   split
+    --   . sorry
+    --   . rename_i h
+    --     rw [h]
+    --     congr
+
+theorem delete_minP' {α : Type u} (P : Nat → α → Prop) (k : Nat) (v : α) (t t' : Tree α)
+    : ForallTree P t
+      → t ≠ empty
+      → delete_min t = some (k, v, t')
+      → ForallTree P t' := by
+  intro hpt htne hdt
+  induction t generalizing k v t' with
+  | empty => cases hdt
+  | tree l'' k'' v'' r'' ihl ihr =>
+    apply ihl <;> try assumption
+    . cases hpt; assumption
+    . intro hle
+      simp [delete_min, *] at *
+      sorry
+    . rw [← hdt]
+      sorry
     --  rw [← hdt]
     --   simp [delete_min]
     --   split
@@ -856,6 +881,8 @@ theorem findmin_node_gt {α : Type u} (t : Tree α) l k v r k'
     . cases hl'
       assumption
     . rw [← hmin, findmin_node]
+      intro contra
+      simp [findmin_node, *] at *
       sorry
 
 theorem deleteP {α : Type u} (P : Nat → α → Prop) (t : Tree α) k
